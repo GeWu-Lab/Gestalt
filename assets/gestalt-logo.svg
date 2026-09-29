@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Gestalt</title>
+  <desc id="desc">Three colored forms reveal a shared triangle in negative space: multimodal understanding in purple, image generation in pink, and language in blue.</desc>
+  <path fill="#776A97" d="M256 137.23L306 223.83A100 100 0 1 0 206 223.83Z"/>
+  <path fill="#C78DC0" d="M132 352L232 352A100 100 0 1 1 182 265.4Z"/>
+  <path fill="#A4D2E5" d="M380 352L330 265.4A100 100 0 1 1 280 352Z"/>
+  <text x="256" y="314" fill="#302846" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="700" letter-spacing="-1">Gestalt</text>
+</svg>

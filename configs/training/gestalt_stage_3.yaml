@@ -1,0 +1,36 @@
+# Stage-III SFT Configuration
+# Objective: Instruction following with answer masking
+
+# Processor Configuration
+max_length: 8192
+answer_mask_schedule: "linear"  # Options: "cosine", "linear", "uniform"
+image_mask_schedule: "linear"
+
+# Model
+base_vocab_size: 126464
+vqvae_codebook_size: 16384
+extended_vocab_size: 142848
+inter_layer_state: "interaction_token"
+inter_layer_num: 4
+
+token_budget: 8192
+image_loss_weight: 0.1
+loss_weight_mode: "token"  # "sample": each segment contributes equally; "token": LLaDA-O 1/√L/mask_ratio
+# Training
+# activate_interaction: true
+learning_rate: 1e-5
+warmup_steps: 200
+adam_beta1: 0.9
+adam_beta2: 0.95
+adam_epsilon: 1.0e-8
+max_steps: 40000
+lr_scheduler_type: "constant"
+
+save_steps: 1000
+save_total_limit: 150
+logging_steps: 10
+gradient_accumulation_steps: 4
+weight_decay: 0.1
+bf16: true
+dataloader_num_workers: 0
+remove_unused_columns: false
