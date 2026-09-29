@@ -28,3 +28,4 @@ tokenizer.json
 /archive/*
 !/archive/Gestalt.pdf
 README_gestalt.md
+/tests/

@@ -13,32 +13,22 @@
 </p>
 
 <p align="center">
-  <a href="https://bjlfzs.github.io/">Zequn Yang</a><sup>1,2,†,*</sup>&emsp;
-  <a href="https://github.com/fishmeoww">Yu Miao</a><sup>1,2,†,*</sup>&emsp;
-  <a href="https://github.com/nihaotian1">Haotian Ni</a><sup>3,†,*</sup>&emsp;
-  <a href="https://github.com/Gutsczh">Ziheng Chen</a><sup>1,2,†</sup>&emsp;
-  <a href="https://scholar.google.com/citations?user=YJWX9e0AAAAJ">Chengxiang Huang</a><sup>4,†</sup>
+  <a href="https://bjlfzs.github.io/">Zequn Yang</a><sup>†</sup>&emsp;
+  <a href="https://github.com/fishmeoww">Yu Miao</a><sup>†</sup>&emsp;
+  <a href="https://github.com/nihaotian1">Haotian Ni</a><sup>†</sup>&emsp;
+  <a href="https://github.com/Gutsczh">Ziheng Chen</a><sup>†</sup>&emsp;
+  <a href="https://scholar.google.com/citations?user=YJWX9e0AAAAJ">Chengxiang Huang</a><sup>†</sup>
   <br/>
-  <a href="https://scholar.google.com/citations?user=Ox6SxpoAAAAJ">Dongzhan Zhou</a><sup>5</sup>&emsp;
-  <a href="https://chenkai.site/">Kai Chen</a><sup>5</sup>&emsp;
-  <a href="http://qizhang.info/">Qi Zhang</a><sup>5</sup>&emsp;
-  <a href="https://gsai.ruc.edu.cn/english/jrwen">Ji-Rong Wen</a><sup>1,2</sup>&emsp;
-  <a href="https://echo0409.github.io/">Yake Wei</a><sup>1,2,‡,*</sup>&emsp;
-  <a href="https://dtaoo.github.io/">Di Hu</a><sup>1,2,6,‡,✉</sup>
+  <a href="https://scholar.google.com/citations?user=Ox6SxpoAAAAJ">Dongzhan Zhou</a>&emsp;
+  <a href="https://chenkai.site/">Kai Chen</a>&emsp;
+  <a href="http://qizhang.info/">Qi Zhang</a>&emsp;
+  <a href="https://gsai.ruc.edu.cn/english/jrwen">Ji-Rong Wen</a>&emsp;
+  <a href="https://echo0409.github.io/">Yake Wei</a>&emsp;
+  <a href="https://dtaoo.github.io/">Di Hu</a><sup>✉</sup>
 </p>
 
 <p align="center">
-  <sup>1</sup>Gaoling School of Artificial Intelligence, Renmin University of China&emsp;
-  <sup>2</sup>Beijing Key Laboratory of Research on Large Models and Intelligent Governance
-  <br/>
-  <sup>3</sup>Imperial College London&emsp;
-  <sup>4</sup>Beijing University of Posts and Telecommunications&emsp;
-  <sup>5</sup>Shanghai Artificial Intelligence Laboratory&emsp;
-  <sup>6</sup>AresoX
-</p>
-
-<p align="center">
-  <sub><sup>†</sup> Equal contribution&emsp;<sup>‡</sup> Team leader&emsp;<sup>✉</sup> Corresponding author&emsp;<sup>*</sup> Work partially done at Shanghai Artificial Intelligence Laboratory, as an internship</sub>
+  <sub><sup>†</sup> Equal contribution&emsp;<sup>✉</sup> Corresponding author</sub>
 </p>
 
 > **Gestalt** is a new paradigm of large multimodal model built around **multimodal interplay**. Guided by a multimodal interplay pyramid — from modality-specific modeling, through cross-modal alignment, to multimodal synergy — Gestalt adopts a unified **discrete diffusion** framework with an interplay-partitioned architecture, where learnable interplay tokens mediate cross-modal exchange and integration. The name is inspired by Gestalt psychology: *the whole is greater than the sum of its parts.*
