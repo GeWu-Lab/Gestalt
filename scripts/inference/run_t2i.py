@@ -22,9 +22,6 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# ---------------------------------------------------------------------------
-# Ensure the gestalt package is importable (same pattern as train_stage3.py)
-# ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from gestalt.model.modeling_gestalt import GestaltModelLM
@@ -60,15 +57,9 @@ def main():
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    # ------------------------------------------------------------------
-    # 1. Load tokenizer
-    # ------------------------------------------------------------------
     print("Loading tokenizer...")
     tokenizer = load_tokenizer(args.model)
 
-    # ------------------------------------------------------------------
-    # 2. Load model
-    # ------------------------------------------------------------------
     print(f"Loading model from {args.model} ...")
     if args.device.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is not available.")
@@ -86,9 +77,6 @@ def main():
     validate_model_vocab(model, VOCAB_CONFIG.EXTENDED_VOCAB_SIZE)
     print(f"Model loaded (vocab_size={model.config.vocab_size})")
 
-    # ------------------------------------------------------------------
-    # 3. Tokenize prompts
-    # ------------------------------------------------------------------
     system_prompt_text = args.system_prompt or ""
     system_prompt_tokens = tokenizer(
         system_prompt_text, add_special_tokens=False
@@ -98,9 +86,6 @@ def main():
         args.prompt, add_special_tokens=False
     )["input_ids"]
 
-    # ------------------------------------------------------------------
-    # 4. Generate visual tokens
-    # ------------------------------------------------------------------
     print(f"Generating {args.lat_h}x{args.lat_w} image tokens "
           f"(steps={args.steps}, temp={args.temperature}, "
           f"cfg={args.cfg_scale}) ...")
@@ -115,11 +100,6 @@ def main():
             cfg_scale=args.cfg_scale,
         )
 
-    # ------------------------------------------------------------------
-    # 5. Convert to raw codebook indices and save
-    # ------------------------------------------------------------------
-    # visual_tokens is [1, lat_h*lat_w] with model token IDs
-    # Subtract VISUAL_TOKEN_OFFSET to recover raw VQVAE codebook indices
     raw_codes = (visual_tokens[0].cpu().numpy()
                  - VOCAB_CONFIG.VISUAL_TOKEN_OFFSET).astype(np.int32)
 

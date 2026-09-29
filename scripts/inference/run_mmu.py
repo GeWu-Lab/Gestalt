@@ -21,9 +21,6 @@ from pathlib import Path
 import numpy as np
 import torch
 
-# ---------------------------------------------------------------------------
-# Ensure the gestalt package is importable (same pattern as train_stage3.py)
-# ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from gestalt.model.modeling_gestalt import GestaltModelLM
@@ -64,15 +61,9 @@ def main():
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    # ------------------------------------------------------------------
-    # 1. Load tokenizer
-    # ------------------------------------------------------------------
     print("Loading tokenizer...")
     tokenizer = load_tokenizer(args.model)
 
-    # ------------------------------------------------------------------
-    # 2. Load model
-    # ------------------------------------------------------------------
     print(f"Loading model from {args.model} ...")
     if args.device.startswith("cuda") and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is not available.")
@@ -90,9 +81,6 @@ def main():
     validate_model_vocab(model, VOCAB_CONFIG.EXTENDED_VOCAB_SIZE)
     print(f"Model loaded (vocab_size={model.config.vocab_size})")
 
-    # ------------------------------------------------------------------
-    # 3. Load image tokens
-    # ------------------------------------------------------------------
     raw_codes = np.load(args.image_tokens)
     if not np.issubdtype(raw_codes.dtype, np.integer):
         raise ValueError(
@@ -111,27 +99,17 @@ def main():
             f"[0, {VOCAB_CONFIG.VQVAE_CODEBOOK_SIZE})."
         )
 
-    # Convert raw codebook indices -> model token IDs
     image_token_ids = (raw_codes + VOCAB_CONFIG.VISUAL_TOKEN_OFFSET).tolist()
 
-    # ------------------------------------------------------------------
-    # 4. Tokenize the question
-    # ------------------------------------------------------------------
     question_tokens = tokenizer(
         args.question, add_special_tokens=False
     )["input_ids"]
 
-    # ------------------------------------------------------------------
-    # 5. Optionally build a system prompt (use the Stage3 default)
-    # ------------------------------------------------------------------
     system_prompt_text = DEFAULT_MMU_SYSTEM_PROMPT
     system_tokens = tokenizer(
         system_prompt_text, add_special_tokens=False
     )["input_ids"]
 
-    # ------------------------------------------------------------------
-    # 6. Generate
-    # ------------------------------------------------------------------
     print("Generating...")
     with torch.no_grad():
         answer_token_ids = model.generate_mmu(
@@ -147,9 +125,6 @@ def main():
             remasking=args.remasking,
         )
 
-    # ------------------------------------------------------------------
-    # 7. Decode and print
-    # ------------------------------------------------------------------
     answer_text = tokenizer.decode(answer_token_ids, skip_special_tokens=True)
     print("\n" + "=" * 60)
     print(f"Question : {args.question}")

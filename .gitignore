@@ -25,5 +25,6 @@ tokenizer.json
 .env
 
 # release housekeeping
-/archive/
+/archive/*
+!/archive/Gestalt.pdf
 README_gestalt.md

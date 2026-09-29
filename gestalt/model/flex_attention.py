@@ -16,17 +16,9 @@ try:
 
     _compiled_flex_attn = torch.compile(flex_attention)
 except ImportError:
-    # CPU-only or older PyTorch without FlexAttention support
     flex_attention = None
     create_block_mask = None
     _compiled_flex_attn = None
-
-
-# ---------------------------------------------------------------------------
-# mask_mod factory functions
-# ---------------------------------------------------------------------------
-# create_block_mask expects mask_mod(b, h, q_idx, kv_idx) with exactly 4 args.
-# We use closures to capture the per-call tensors (document_ids, is_padding, etc.).
 
 
 def _make_document_mask_mod(document_ids, is_padding):
@@ -49,14 +41,9 @@ def _make_isolated_mask_mod(document_ids, is_padding, is_image_token, is_interac
         k_is_inter = is_interaction_token[b, kv_idx]
         
         can_attend = (q_is_inter | k_is_inter) | (q_is_img == k_is_img)
-        # same_modality = q_is_image == k_is_image
         return same_doc & can_attend & not_padding
     return mask_mod
 
-
-# ---------------------------------------------------------------------------
-# Dense mask builder (SDPA inference path)
-# ---------------------------------------------------------------------------
 
 def build_dense_attn_mask(input_ids, document_ids, is_image_token, is_padding, is_interaction_token, isolated=False):
     """Build a dense attention mask equivalent to the FlexAttention mask_mods.
@@ -74,12 +61,10 @@ def build_dense_attn_mask(input_ids, document_ids, is_image_token, is_padding, i
     B, L = input_ids.shape
     mask = torch.zeros(B, 1, L, L, dtype=torch.float, device=input_ids.device)
 
-    # Same-document check
     doc_q = document_ids.unsqueeze(-1)  # (B, L, 1)
     doc_k = document_ids.unsqueeze(-2)  # (B, 1, L)
     same_doc = doc_q == doc_k  # (B, L, L)
 
-    # Padding check
     pad_q = is_padding.unsqueeze(-1)
     pad_k = is_padding.unsqueeze(-2)
     not_padding = ~pad_q & ~pad_k
@@ -93,11 +78,6 @@ def build_dense_attn_mask(input_ids, document_ids, is_image_token, is_padding, i
         inter_q = is_interaction_token.unsqueeze(-1) # (B, L, 1)
         inter_k = is_interaction_token.unsqueeze(-2) # (B, 1, L)
 
-        # 核心修改：
-        # 允许交互的情况：
-        # (img_q == img_k) -> 同模态（图看图，文看文）
-        # | inter_q       -> Query 是交互 Token（它能看所有人）
-        # | inter_k       -> Key 是交互 Token（所有人都能看它）
         can_attend = (img_q == img_k) | inter_q | inter_k
         
         allowed = allowed & can_attend
@@ -105,10 +85,6 @@ def build_dense_attn_mask(input_ids, document_ids, is_image_token, is_padding, i
     mask = mask.masked_fill(~allowed.unsqueeze(1), -1e4)
     return mask
 
-
-# ---------------------------------------------------------------------------
-# Block mask creation (requires GPU + FlexAttention support)
-# ---------------------------------------------------------------------------
 
 def create_block_masks(input_ids, document_ids, is_image_token, is_padding, is_interaction_token, n_heads, device):
     """Create FlexAttention BlockMask objects for both masking modes.

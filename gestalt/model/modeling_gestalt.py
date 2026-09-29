@@ -186,17 +186,7 @@ class GestaltModelLM(LLaDAModelLM):
         temperature: float = 0.0,
         remasking: str = "low_confidence"
     ):
-        """
-        MMU generation: predict the answer span via block-wise diffusion decoding.
-
-        Sequence format:
-            <system>{sys}</system>
-            <user><IMAGE>{img_tokens}</IMAGE>[INTERACTION*32]{question}</user>
-            <answer>[MASK * gen_length]</answer>
-
-        Returns:
-            List[int]: generated answer token ids (truncated before EOS).
-        """
+        """Generate an MMU answer with block-wise diffusion decoding."""
         if token_h <= 0 or token_w <= 0:
             raise ValueError("token_h and token_w must be positive.")
         if len(image_tokens) != token_h * token_w:
@@ -359,14 +349,7 @@ class GestaltModelLM(LLaDAModelLM):
         temperature: float = 1.0,
         cfg_scale: float = 4.0,
     ):
-        """
-        Stage3 SFT T2I generation (MaskGit-style parallel sampling).
-
-        Sequence format (matches Stage3Processor._process_t2i):
-            <system> {system_prompt} </system>
-            <user> BOS {user_prompt} EOS </user>
-            [INTERACTION*32] <answer> <IMAGE> {img_tokens} </IMAGE> </answer>
-        """
+        """Generate visual tokens with the Stage-III T2I template."""
         if lat_h <= 0 or lat_w <= 0 or timesteps <= 0:
             raise ValueError("lat_h, lat_w, and timesteps must be positive.")
         if temperature < 0:
@@ -482,7 +465,6 @@ class GestaltModelLM(LLaDAModelLM):
         return final_vq.unsqueeze(0)
 
 
-# Register with Auto mapping
 from transformers import AutoConfig, AutoModelForCausalLM
 AutoConfig.register("gestalt", GestaltConfig)
 AutoModelForCausalLM.register(GestaltConfig, GestaltModelLM)

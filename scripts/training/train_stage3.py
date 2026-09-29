@@ -61,7 +61,6 @@ def main():
     parser.add_argument("--logging_steps", type=int, default=None, help="Override logging_steps from config")
     args = parser.parse_args()
 
-    # Load config
     cfg = load_config(args.config)
     if args.max_steps is not None:
         cfg["max_steps"] = args.max_steps
@@ -77,7 +76,6 @@ def main():
     print(f"Loaded Gestalt-DiMOO tokenizer, len={len(tokenizer)}")
     
 
-    # Processor: masking only, no tokenization
     processor = create_stage3_processor(
         tokenizer=tokenizer,
         max_length=cfg.get("max_length", 5120),
@@ -87,7 +85,6 @@ def main():
         loss_weight_mode=cfg.get("loss_weight_mode", "sample"),
     )
 
-    # Dataset: streaming IterableDataset (no upfront indexing)
     raw_dataset = Stage3Dataset(args.data, processor)
     print(f"Loaded dataset with {len(raw_dataset)} examples")
     token_budget = cfg.get("token_budget", 10000)
@@ -98,7 +95,6 @@ def main():
     if not isinstance(max_steps, int) or max_steps <= 0:
         raise ValueError("max_steps must be a positive integer for the streaming dataset.")
 
-    # Validate vocab config
     print(f"Vocab config - base: {cfg['base_vocab_size']}, "
           f"vqvae: {cfg['vqvae_codebook_size']}, "
           f"extended: {cfg['extended_vocab_size']}")
@@ -110,37 +106,27 @@ def main():
         eval_dataset=None,
         tokenizer=tokenizer,
         output_dir=args.output,
-        # Optimizer (Technical Report)
         learning_rate=cfg.get("learning_rate", 1e-5),
         weight_decay=cfg.get("weight_decay", 0.1),
         adam_beta1=cfg.get("adam_beta1", 0.9),
         adam_beta2=cfg.get("adam_beta2", 0.95),
         adam_epsilon=cfg.get("adam_epsilon", 1e-8),
         max_grad_norm=cfg.get("max_grad_norm", 1.0),
-        # LR schedule
         lr_scheduler_type=cfg.get("lr_scheduler_type", "constant"),
         warmup_steps=cfg.get("warmup_steps", 100),
-        # Batch
-        # Note: TokenBudgetPackingDataset requires per_device_train_batch_size=1
-        # The packing is done within the dataset
+        # Packing requires a single pre-packed item per device.
         per_device_train_batch_size=1,
         gradient_accumulation_steps=cfg.get("gradient_accumulation_steps", 4),
-        # Training duration
         max_steps=max_steps,
-        # Logging & saving
         save_steps=cfg.get("save_steps", 400),
         save_total_limit=cfg.get("save_total_limit", 5),
         logging_steps=cfg.get("logging_steps", 50),
-        # Sequence length (must match processor's max_length)
         max_length=cfg.get("max_length", 5120),
-        # Misc
         bf16=cfg.get("bf16", True),
         gradient_checkpointing=cfg.get("gradient_checkpointing", True),
         dataloader_num_workers=cfg.get("dataloader_num_workers", 0),
         remove_unused_columns=False,
-        # Stage-3 specific
         vocab_size=cfg.get("extended_vocab_size", 142848),
-        # DeepSpeed
         deepspeed=args.deepspeed if args.deepspeed.lower() != "none" else None,
         inter_layer_state=cfg.get("inter_layer_state", "interaction_token"),
         inter_layer_num=cfg.get("inter_layer_num", 8),

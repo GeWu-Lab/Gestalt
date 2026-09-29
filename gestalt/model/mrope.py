@@ -1,15 +1,4 @@
-"""
-MRoPE2DRotaryEmbedding: 2D Multi-Resolution Rotary Position Embedding.
-
-Replaces standard 1D RoPE with 2D positional encoding that assigns separate
-height and width position IDs to image tokens while preserving identical
-behavior for text tokens (where h_pos == w_pos).
-
-Each half is then duplicated via cat([freqs, freqs]) to match the interleaved
-rotate_half convention, yielding layout [h, w, h, w] across the full 128 dims.
-
-When h_pos == w_pos (text tokens), this reduces to exactly the original 1D RoPE.
-"""
+"""Two-dimensional rotary positions for text-and-image token sequences."""
 
 from __future__ import annotations
 
@@ -23,24 +12,19 @@ from .config import SPECIAL_TOKENS, VOCAB_CONFIG
 
 
 class MRoPE2DRotaryEmbedding(nn.Module):
-    """2D Rotary Position Embedding for multimodal discrete diffusion.
-
-    Args:
-        config: Model config with attrs d_model, n_heads, rope_theta, rope_full_precision.
-    """
+    """Apply 2D RoPE while preserving pretrained 1D text behavior."""
 
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.rope_theta = config.rope_theta
 
-        dim = config.d_model // config.n_heads  # head_dim = 128
-        # Full inv_freq with 64 values, identical to original RotaryEmbedding
+        dim = config.d_model // config.n_heads
         inv_freq = 1.0 / (
             self.rope_theta
             ** (torch.arange(0, dim, 2, dtype=torch.float) / dim)
         )
-        self.register_buffer("inv_freq", inv_freq)  # shape (64,)
+        self.register_buffer("inv_freq", inv_freq)
 
     def rotate_half(self, x: torch.Tensor) -> torch.Tensor:
         """Interleaved rotate_half, identical to original RotaryEmbedding."""
@@ -66,42 +50,23 @@ class MRoPE2DRotaryEmbedding(nn.Module):
         Returns:
             (pos_sin, pos_cos) each of shape (B, 1, T, head_dim).
         """
-        # Reuse the registered buffer from __init__ (already correct dtype/values).
         inv_freq = self.inv_freq.to(device=device, dtype=torch.float)
 
-        # Interleaved frequency split:
-        #   inv_freq_h gets the even-indexed inv_freq values (0, 2, 4, ..., 62)
-        #   inv_freq_w gets the odd-indexed  inv_freq values (1, 3, 5, ..., 63)
-        # Both halves therefore span the FULL frequency range (high to low),
-        inv_freq_h = inv_freq[0::2]  # (32,) — original indices 0, 2, 4, ..., 62
-        inv_freq_w = inv_freq[1::2]  # (32,) — original indices 1, 3, 5, ..., 63
+        inv_freq_h = inv_freq[0::2]
+        inv_freq_w = inv_freq[1::2]
 
-        h_pos = position_ids[0].float()  # (B, T)
-        w_pos = position_ids[1].float()  # (B, T)
+        h_pos = position_ids[0].float()
+        w_pos = position_ids[1].float()
 
-        # Compute frequency tensors: (B, T, 32) each
         freqs_h = h_pos.unsqueeze(-1) * inv_freq_h
         freqs_w = w_pos.unsqueeze(-1) * inv_freq_w
 
-        # Interleaved output layout: [h0, w0, h1, w1, ..., h31, w31], then
-        # repeated to fill the second half of head_dim (so that rotate_half
-        # pairs (i, i+64) reference the same frequency).
-        #
-        # Critical property: when h_pos == w_pos (text tokens), this collapses
-        # exactly to the original 1D RoPE layout cat([p*inv_freq, p*inv_freq]),
-        # so Dream's pretrained text RoPE semantics are preserved bit-for-bit.
-        # When h_pos != w_pos (image tokens), even dims encode h via the
-        # even-index frequencies and odd dims encode w via the odd-index
-        # frequencies — both axes now have full-spectrum resolution.
-        #
-        # Do NOT change this to a block-concat like cat([h, w, h, w]); doing so
-        # shuffles the dim->frequency mapping for text and breaks the Dream
-        # pretrained text attention.
-        interleaved = torch.stack([freqs_h, freqs_w], dim=-1).flatten(-2)  # (B, T, 64)
-        positions = torch.cat([interleaved, interleaved], dim=-1)          # (B, T, 128)
+        # Interleaving is required for exact compatibility when h_pos == w_pos.
+        interleaved = torch.stack([freqs_h, freqs_w], dim=-1).flatten(-2)
+        positions = torch.cat([interleaved, interleaved], dim=-1)
 
-        pos_sin = positions.sin().unsqueeze(1)  # (B, 1, T, 128)
-        pos_cos = positions.cos().unsqueeze(1)  # (B, 1, T, 128)
+        pos_sin = positions.sin().unsqueeze(1)
+        pos_cos = positions.cos().unsqueeze(1)
 
         return pos_sin, pos_cos
 
@@ -111,16 +76,7 @@ class MRoPE2DRotaryEmbedding(nn.Module):
         k: torch.Tensor,
         position_ids: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Apply 2D rotary embeddings to queries and keys.
-
-        Args:
-            q: (B, n_heads, T, head_dim)
-            k: (B, n_kv_heads, T, head_dim)
-            position_ids: (2, B, T) — [0]=height, [1]=width
-
-        Returns:
-            (q_rotated, k_rotated) with same shapes as input.
-        """
+        """Apply positions shaped (2, B, T) to query and key tensors."""
         if self.config.rope_full_precision:
             q_, k_ = q.float(), k.float()
         else:
@@ -142,34 +98,10 @@ def compute_2d_position_ids(
     image_grids: Optional[list] = None,
     document_ids: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """Compute 2D (height, width) position IDs for a token sequence.
+    """Return (height, width) positions shaped (2, B, L).
 
-    Text tokens get h_pos == w_pos (monotonically increasing). Image tokens
-    get 2D grid positions based on their image_grid (H, W) dimensions.
-
-    Args:
-        input_ids: (B, L) token IDs.
-        image_grids: List of (H, W) tuples for each image in the batch element.
-            Consumed in order as image regions are encountered.
-        document_ids: Optional ``(B, L)`` packed-document IDs. Position IDs
-            restart at zero whenever the document ID changes.
-
-    Returns:
-        (2, B, L) tensor where [0] = height positions, [1] = width positions.
-
-    Implementation strategy:
-        Instead of a per-token Python loop (O(L) Python iterations), this
-        function uses a segment-based approach:
-
-        1. Locate all IMAGE_START / IMAGE_END positions with np.where to
-           identify image regions vs text regions in a single scan.
-        2. For each text segment, assign h_pos = w_pos = counter + arange(n)
-           via a single numpy slice write — no per-token branching.
-        3. For each image segment, compute row/col indices with vectorized
-           divmod on np.arange(n_tokens) and write the whole region at once.
-
-        The outer batch loop (B) is kept since B is typically 1 (document
-        packing). The inner per-token loop is eliminated entirely.
+    Text uses identical height/width positions, image regions use their grids,
+    and positions restart at packed-document boundaries.
     """
     if image_grids is None:
         image_grids = []
@@ -181,7 +113,6 @@ def compute_2d_position_ids(
             f"input_ids shape {tuple(input_ids.shape)}"
         )
 
-    # One-shot copies to numpy avoid per-element CUDA synchronization.
     input_np = input_ids.detach().cpu().numpy()
     document_np = (
         document_ids.detach().cpu().numpy()

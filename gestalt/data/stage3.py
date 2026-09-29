@@ -1,62 +1,4 @@
-"""
-Stage-III Supervised Fine-Tuning: Instruction Following
-
-Multi-round conversation processor with interaction tokens.
-
-Supports three task types:
-1. I2T (Image-to-Text): Understanding tasks with multi-round conversations
-   Input format from parquet (new multiround format):
-       {
-           "conversations": JSON string: [{"from": "human"/"gpt", "value": str}, ...],
-           "img_tokens": np.ndarray (raw codebook IDs, not offset),
-           "metadata": {"token_height": int, "token_width": int, ...}
-       }
-   Sequence format (single image):
-       <system> {system_prompt} </system>
-       <user><IMAGE> {img_tokens} </IMAGE>[INTERACTION*32] BOS {human_1} EOS </user>
-       <answer> BOS {gpt_1} EOS </answer>
-       ...
-   Sequence format (multiple images):
-       <system> {system_prompt} </system>
-       <user><IMAGE> {img1_tokens} </IMAGE><IMAGE> {img2_tokens} </IMAGE>[INTERACTION*32] BOS {human_1} EOS </user>
-       <answer> BOS {gpt_1} EOS </answer>
-       ...
-   Loss: Only gpt answer text tokens and answer-side EOS are masked for loss computation
-
-2. T2I (Text-to-Image): Generation tasks with text-to-image
-   Input format from parquet:
-       {
-           "system_prompt": str,
-           "user_prompt": str,
-           "answer_image": {"img_tokens": np.ndarray},
-           "metadata": dict
-       }
-   Sequence format:
-       <system> {system_prompt} </system> <user> BOS {user_prompt} EOS </user> [INTERACTION*32]<answer> <IMAGE> {img_tokens} </IMAGE></answer>
-   Loss: Only image tokens are masked for loss computation
-
-3. I2I (Image-to-Image): Editing tasks with input image and output image
-   Input format from parquet:
-       {
-           "system_prompt": str,
-           "user_prompt": str,
-           "input_image": {"img_tokens": np.ndarray},
-           "answer_image": {"img_tokens": np.ndarray},
-           "metadata": dict
-       }
-   Sequence format:
-       <system> {system_prompt} </system> <user> <IMAGE> {input_img_tokens} </IMAGE>BOS {user_prompt} EOS </user> [INTERACTION*32] <answer> <IMAGE> {output_img_tokens} </IMAGE> </answer>
-   Loss: Only output image tokens are masked for loss computation
-
-Output format consumed by the Stage-III collator:
-    {
-        "inputs_id": original_input_ids,        # 原始 ID
-        "masked_inputs_id": masked_input_ids,   # 喂给模型的 ID
-        "loss_mask": loss_mask,                 # 哪些位置需要计算 Loss (bool)
-        "labels": labels,                        # 传统的 labels 格式 (-100 for non-loss)
-        "ce_loss_weights": ce_loss_weights,      # 预训练式 token-level loss 权重
-    }
-"""
+"""Build masked Stage-III training sequences for I2T, T2I, and I2I."""
 
 import json
 import math
@@ -71,19 +13,10 @@ from gestalt.model.templates import DEFAULT_MMU_SYSTEM_PROMPT, interaction_token
 
 
 class Stage3Processor:
-    """
-    Stage-III Data Processor for multi-round conversations and text-to-image tasks.
-
-    Features:
-    - Handles I2T: multi-round human/gpt conversations with loss on answer_text
-    - Handles T2I: text-to-image generation with loss on image tokens
-    - Inserts 32 interaction tokens between text and image
-    - Returns the masked-token format consumed by Stage-III training
-    """
+    """Convert normalized task records into masked-token training samples."""
 
     INTERACTION_TOKENS = interaction_token_ids()
 
-    # Default system prompt for I2T
     SYSTEM_PROMPT_I2T = DEFAULT_MMU_SYSTEM_PROMPT
 
     HUMAN_ROLES: Set[str] = {"human", "user"}
@@ -114,12 +47,11 @@ class Stage3Processor:
             raise ValueError("image_loss_weight must be positive.")
         if loss_weight_mode not in {"sample", "token"}:
             raise ValueError("loss_weight_mode must be 'sample' or 'token'.")
-        # 独立 RNG，避免使用全局 random（跨 rank 种子相同）
+        # Each rank and worker receives an independent seed through seed_rng.
         self.rng = random.Random()
 
-        # Cache for system prompts
         self._system_prompt_tokens_i2t = None
-        self._system_prompt_tokens_cache = {}  # Cache for custom system prompts
+        self._system_prompt_tokens_cache = {}
 
     @staticmethod
     def _ce_weights_from_labels(
@@ -149,14 +81,7 @@ class Stage3Processor:
         is_loss: bool = False,
         multiplier: float = 1.0,
     ) -> Optional[float]:
-        """Append a BOS/EOS-wrapped text span.
-
-        BOS is never a prediction target. For loss spans, the content tokens and
-        the trailing EOS are denoising targets under the normal mask schedule.
-        For non-loss spans, BOS/content/EOS are all clean conditioning tokens.
-
-        Returns the sampled mask_ratio when ``is_loss=True``, else ``None``.
-        """
+        """Append a BOS/EOS span, never treating BOS as a prediction target."""
         if not tokens:
             return None
 
@@ -203,7 +128,7 @@ class Stage3Processor:
         }
 
     def seed_rng(self, seed: int):
-        """用 global_worker_id 重新种子化，确保不同 rank/worker 的 mask ratio 独立。"""
+        """Seed mask sampling independently for each rank and worker."""
         self.rng = random.Random(seed)
 
     @staticmethod
@@ -230,13 +155,7 @@ class Stage3Processor:
 
     @staticmethod
     def _maybe_complete_split_question(text: str) -> str:
-        """Fill in terse region-only turns after splitting multiturn QA.
-
-        Some real multiturn rows use the first turn to state the region-caption
-        instruction, then later user turns contain only a bbox like
-        "[0.026,0.195,0.998,0.357]".  After split_qa those turns need a
-        self-contained prompt.
-        """
+        """Make a bounding-box-only split turn self-contained."""
         stripped = text.strip()
         bbox_only = re.fullmatch(
             r"\[?\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*,\s*"
@@ -277,11 +196,7 @@ class Stage3Processor:
 
     @staticmethod
     def _prepare_image_tokens(img_tokens) -> List[List[int]]:
-        """Prepare image tokens, preserving per-image boundaries.
-
-        Returns a list of per-image token lists so each image can be wrapped
-        in its own <IMAGE>...</IMAGE> pair.
-        """
+        """Normalize image tokens while preserving per-image boundaries."""
         if img_tokens is None or len(img_tokens) == 0:
             return []
         img_tokens = list(img_tokens)
@@ -302,7 +217,6 @@ class Stage3Processor:
         if system_prompt is None:
             system_prompt = self.SYSTEM_PROMPT_I2T
 
-        # Check if default I2T prompt
         if system_prompt == self.SYSTEM_PROMPT_I2T:
             if self._system_prompt_tokens_i2t is None:
                 self._system_prompt_tokens_i2t = self.tokenizer(
@@ -313,7 +227,6 @@ class Stage3Processor:
                 )["input_ids"]
             return self._system_prompt_tokens_i2t
 
-        # Cache custom prompts
         if system_prompt not in self._system_prompt_tokens_cache:
             self._system_prompt_tokens_cache[system_prompt] = self.tokenizer(
                 system_prompt,
@@ -324,22 +237,7 @@ class Stage3Processor:
         return self._system_prompt_tokens_cache[system_prompt]
 
     def __call__(self, raw_data: Dict) -> Optional[Union[Dict[str, List], List[Dict[str, List]]]]:
-        """
-        Process raw parquet data into training format.
-
-        Automatically detects task type based on data structure.
-        Unified-format data (with explicit task_type) is converted to the
-        expected field layout by Stage3Dataset before reaching this method,
-        so routing here is purely field-based.
-
-        Args:
-            raw_data: Dict with varying structure based on task type
-
-        Returns:
-            Processed dict with inputs_id, masked_inputs_id, loss_mask, labels, ce_loss_weights
-            or None if processing fails
-        """
-        # Detect task type based on data structure.
+        """Route one normalized record to its task processor."""
         has_input_image = "input_image" in raw_data
         has_answer_image = "answer_image" in raw_data
         has_metadata_top = "metadata" in raw_data and isinstance(raw_data.get("metadata"), dict)
@@ -360,20 +258,7 @@ class Stage3Processor:
         )
 
     def _process_i2t_split_qa(self, raw_data: Dict) -> Optional[List[Dict[str, List]]]:
-        """
-        Split a multiturn I2T conversation into independent image-grounded QA samples.
-
-        Original:
-            <image> Q1 -> A1, Q2 -> A2, ...
-
-        Returned samples:
-            sample 1: <image> Q1 -> A1
-            sample 2: <image> Q2 -> A2
-            ...
-
-        This avoids bidirectional-attention leakage from future turns while
-        preserving loss on every assistant answer.
-        """
+        """Split I2T turns into independent QA samples to prevent future leakage."""
         system_prompt = raw_data.get("system_prompt", self.SYSTEM_PROMPT_I2T)
         conversations = self._decode_conversations(raw_data.get("conversations", []))
         img_token_groups = self._prepare_image_tokens(raw_data.get("img_tokens"))
@@ -447,13 +332,11 @@ class Stage3Processor:
             loss_mask.extend(loss_flags)
             ce_loss_weights.extend(weights if weights is not None else [0.0] * len(toks))
 
-        # <system> {system_prompt} </system>
         _append(SpecialTokenIds.SYSTEM_START)
         sys_ids = self._get_system_prompt_tokens(system_prompt)
         _extend(sys_ids, sys_ids, [False] * len(sys_ids))
         _append(SpecialTokenIds.SYSTEM_END)
 
-        # <user> <IMAGE>...</IMAGE> [<IMAGE>...</IMAGE>...] [INTERACTION*32] BOS {question} EOS </user>
         _append(SpecialTokenIds.USER_START)
         if img_token_groups:
             for single_img in img_token_groups:
@@ -475,7 +358,6 @@ class Stage3Processor:
             self._extend_text_span(question_ids, _extend, is_loss=False)
         _append(SpecialTokenIds.USER_END)
 
-        # <answer> BOS {answer} EOS </answer>
         answer_ids = self.tokenizer(
             answer,
             add_special_tokens=False,
@@ -512,42 +394,21 @@ class Stage3Processor:
         return sample
 
     def _process_t2i(self, raw_data: Dict) -> Optional[Dict[str, List]]:
-        """
-        Process T2I (Text-to-Image) data.
-
-        Input format:
-            {
-                "system_prompt": str,
-                "user_prompt": str,
-                "answer_image": {"img_tokens": np.ndarray},
-                "metadata": dict
-            }
-
-        Sequence format:
-            <system> {system_prompt} </system>
-            <user> BOS {user_prompt} EOS </user>
-            [INTERACTION*32]<answer> <IMAGE> {img_tokens} </IMAGE></answer>
-
-        Only image tokens are masked for loss computation.
-        """
-        # Extract fields
+        """Build a T2I sample with loss on masked answer-image tokens."""
         system_prompt = raw_data.get("system_prompt", "")
         user_prompt = raw_data.get("user_prompt", "")
         answer_image = raw_data.get("answer_image", {})
-        # Extract image tokens
         if isinstance(answer_image, dict):
             img_tokens = answer_image.get("img_tokens")
         else:
             img_tokens = None
 
-        # Process image tokens
         img_tokens = self._normalize_image_token_sequence(
             [] if img_tokens is None else img_tokens, "answer_image.img_tokens"
         )
         if not img_tokens:
             raise ValueError("T2I sample has no answer image tokens.")
 
-        # Mask image tokens
         masked_img_tokens, img_labels, img_mask_ratio = self._mask_image_tokens(img_tokens)
         img_weights = self._ce_weights_from_labels(
             img_labels,
@@ -557,7 +418,6 @@ class Stage3Processor:
             mode=self.loss_weight_mode,
         )
 
-        # Build sequence
         original_tokens = []
         masked_tokens = []
         loss_mask = []
@@ -575,14 +435,12 @@ class Stage3Processor:
             loss_mask.extend(loss_flags)
             ce_loss_weights.extend(weights if weights is not None else [0.0] * len(toks))
 
-        # Add <system> {system_prompt} </system>
         _append(SpecialTokenIds.SYSTEM_START)
 
         system_prompt_ids = self._get_system_prompt_tokens(system_prompt)
         _extend(system_prompt_ids, system_prompt_ids, [False] * len(system_prompt_ids))
         _append(SpecialTokenIds.SYSTEM_END)
 
-        # Add <user> BOS {user_prompt} EOS </user>
         _append(SpecialTokenIds.USER_START)
 
         user_prompt_ids = self.tokenizer(
@@ -595,28 +453,22 @@ class Stage3Processor:
         self._extend_text_span(user_prompt_ids, _extend, is_loss=False)
         _append(SpecialTokenIds.USER_END)
 
-        # Add interaction tokens (32 tokens)
         original_tokens.extend(self.INTERACTION_TOKENS)
         masked_tokens.extend(self.INTERACTION_TOKENS)
         loss_mask.extend([False] * 32)
         ce_loss_weights.extend([0.0] * 32)
 
-        # Add <answer> <IMAGE> {img_tokens} </IMAGE></answer>
         _append(SpecialTokenIds.ANSWER_START)
 
         if img_tokens:
-            # IMAGE_START
             _append(SpecialTokenIds.IMAGE_START)
 
-            # Image tokens (masked for T2I)
-            # Convert labels from token_id/-100 to bool (True if loss position)
             img_loss_mask = [lbl != -100 for lbl in img_labels]
             original_tokens.extend(img_tokens)
             masked_tokens.extend(masked_img_tokens)
             loss_mask.extend(img_loss_mask)
             ce_loss_weights.extend(img_weights)
 
-            # IMAGE_END
             _append(SpecialTokenIds.IMAGE_END)
 
         _append(SpecialTokenIds.ANSWER_END)
@@ -629,7 +481,6 @@ class Stage3Processor:
             )
             return None
 
-        # Build labels from loss_mask
         labels = []
         for orig, is_loss in zip(original_tokens, loss_mask):
             labels.append(orig if is_loss else -100)
@@ -644,32 +495,11 @@ class Stage3Processor:
         return sample
 
     def _process_i2i(self, raw_data: Dict) -> Optional[Dict[str, List]]:
-        """
-        Process I2I (Image-to-Image) editing data.
-
-        Input format:
-            {
-                "system_prompt": str,
-                "user_prompt": str,
-                "input_image": {"img_tokens": np.ndarray},
-                "answer_image": {"img_tokens": np.ndarray},
-                "metadata": dict
-            }
-
-        Sequence format:
-            <system> {system_prompt} </system>
-            <user> <IMAGE> {input_img_tokens} </IMAGE>BOS {user_prompt} EOS </user>
-            [INTERACTION*32]
-            <answer> <IMAGE> {output_img_tokens} </IMAGE> </answer>
-
-        Loss: Only output image tokens (answer_image) are masked for loss computation.
-        """
-        # Extract fields
+        """Build an I2I sample with loss only on masked output-image tokens."""
         system_prompt = raw_data.get("system_prompt", "")
         user_prompt = raw_data.get("user_prompt", "")
         input_image = raw_data.get("input_image", {})
         answer_image = raw_data.get("answer_image", {})
-        # Extract and offset input image tokens (condition, not masked)
         if isinstance(input_image, dict):
             in_tokens = input_image.get("img_tokens")
         else:
@@ -679,7 +509,6 @@ class Stage3Processor:
             [] if in_tokens is None else in_tokens, "input_image.img_tokens"
         )
 
-        # Extract and offset output image tokens (target, masked for loss)
         if isinstance(answer_image, dict):
             out_tokens = answer_image.get("img_tokens")
         else:
@@ -691,7 +520,6 @@ class Stage3Processor:
         if not in_tokens or not out_tokens:
             raise ValueError("I2I sample requires both input and answer image tokens.")
 
-        # Mask output image tokens for loss
         masked_out_tokens, out_labels, out_mask_ratio = self._mask_image_tokens(out_tokens)
         out_weights = self._ce_weights_from_labels(
             out_labels,
@@ -701,7 +529,6 @@ class Stage3Processor:
             mode=self.loss_weight_mode,
         )
 
-        # Build sequence
         original_tokens = []
         masked_tokens = []
         loss_mask = []
@@ -719,13 +546,11 @@ class Stage3Processor:
             loss_mask.extend(loss_flags)
             ce_loss_weights.extend(weights if weights is not None else [0.0] * len(toks))
 
-        # <system> {system_prompt} </system>
         _append(SpecialTokenIds.SYSTEM_START)
         sys_ids = self._get_system_prompt_tokens(system_prompt)
         _extend(sys_ids, sys_ids, [False] * len(sys_ids))
         _append(SpecialTokenIds.SYSTEM_END)
 
-        # <user> <IMAGE> {input_img_tokens} </IMAGE> BOS {user_prompt} EOS </user>
         _append(SpecialTokenIds.USER_START)
 
         if in_tokens:
@@ -743,13 +568,11 @@ class Stage3Processor:
 
         _append(SpecialTokenIds.USER_END)
 
-        # [INTERACTION * 32]
         original_tokens.extend(self.INTERACTION_TOKENS)
         masked_tokens.extend(self.INTERACTION_TOKENS)
         loss_mask.extend([False] * 32)
         ce_loss_weights.extend([0.0] * 32)
 
-        # <answer> <IMAGE> {output_img_tokens} </IMAGE> </answer>
         _append(SpecialTokenIds.ANSWER_START)
 
         if out_tokens:
@@ -768,7 +591,6 @@ class Stage3Processor:
             )
             return None
 
-        # Build labels from loss_mask
         labels = [orig if is_loss else -100 for orig, is_loss in zip(original_tokens, loss_mask)]
 
         sample = {
@@ -781,23 +603,7 @@ class Stage3Processor:
         return sample
 
     def _sample_mask_ratio(self, schedule: str, n: int) -> float:
-        """
-        Sample a mask ratio according to the given schedule.
-
-        Supported masking schedules:
-            cosine  : mask_ratio = cos(r * π/2),  r ~ U(0,1)  → bias toward high ratios
-            linear  : mask_ratio = max(r, 0.05),  r ~ U(0,1)  → uniform with 5% floor
-            uniform : mask_ratio ~ U(0.3, 0.9)
-
-        Very short sequences (n <= 10) are always fully masked regardless of schedule.
-
-        Args:
-            schedule: One of "cosine", "linear", "uniform"
-            n: Number of tokens (used for short-sequence guard)
-
-        Returns:
-            mask_ratio in (0, 1]
-        """
+        """Sample a positive mask ratio from the configured schedule."""
         if n <= 5:
             return 1.0
 
@@ -812,15 +618,7 @@ class Stage3Processor:
             raise ValueError(f"Unknown mask schedule: {schedule!r}. Choose from 'cosine', 'linear', 'uniform'.")
 
     def _mask_image_tokens(self, tokens: List[int]) -> Tuple[List[int], List[int], float]:
-        """
-        Mask image tokens for T2I / I2I tasks.
-
-        Args:
-            tokens: List of image token IDs
-
-        Returns:
-            Tuple of (masked_tokens, labels, mask_ratio)
-        """
+        """Return masked image tokens, labels, and the sampled ratio."""
         if not tokens:
             return [], [], 0.0
 
@@ -837,15 +635,7 @@ class Stage3Processor:
         return masked, labels, mask_ratio
 
     def _mask_answer_text(self, tokens: List[int]) -> Tuple[List[int], List[int], float]:
-        """
-        Mask answer text tokens for I2T tasks.
-
-        Args:
-            tokens: List of text token IDs
-
-        Returns:
-            Tuple of (masked_tokens, labels, mask_ratio)
-        """
+        """Return masked answer tokens, labels, and the sampled ratio."""
         if not tokens:
             return [], [], 0.0
 

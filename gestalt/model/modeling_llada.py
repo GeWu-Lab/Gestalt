@@ -1,4 +1,3 @@
-# coding=utf-8
 from __future__ import annotations
 
 import logging
@@ -609,10 +608,8 @@ class LLaDABlock(nn.Module):
         num_q_heads = q.size(1)
 
         if block_mask is not None:
-            # Training path: FlexAttention (GQA handled natively)
             return _compiled_flex_attn(q, k, v, block_mask=block_mask, enable_gqa=True), None
         else:
-            # Inference path: SDPA with dense mask
             if num_q_heads != num_kv_heads:
                 assert num_q_heads % num_kv_heads == 0
                 k = k.repeat_interleave(num_q_heads // num_kv_heads, dim=1)
@@ -661,8 +658,6 @@ class LLaDABlock(nn.Module):
                 attention_bias, dtype
             )
 
-        # Get the attention scores.
-        # shape: (B, nh, T, hs)
         att, attn_weights = self._scaled_dot_product_attention(
             q,
             k,
@@ -869,12 +864,9 @@ class LLaDALlamaBlock(LLaDABlock):
 
 
 class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
-    """
-    专门用于处理多模态融合的层。通过动态屏蔽特定的模态交互，并具有针对文本与图像的双路 MLP。
-    """
+    """Interaction block with modality-specific MLP branches."""
     def __init__(self, layer_id: int, config: ModelConfig, cache: BufferCache):
         super().__init__(layer_id, config, cache)
-        # Vision-specific MLP weights
         self.vision_ff_proj = nn.Linear(
             config.d_model, self.hidden_size, bias=config.include_bias, device=config.init_device
         )
@@ -911,7 +903,6 @@ class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         B, T, D = x.shape
 
-        # Compute the vision mask from explicit image boundaries.
         is_boi = (input_ids == BOI)
         is_eoi = (input_ids == EOI)
 
@@ -931,7 +922,6 @@ class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
         k = self.k_proj(x_normed)
         v = self.v_proj(x_normed)
 
-        # KV cache logic
         if use_cache:
             cat = kwargs.get('cat', 'cond')
             if cat not in self.cache['k']:
@@ -966,7 +956,6 @@ class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
         else:
             x = self.ff_norm(x)
 
-        # Text MLP
         x_text, x_text_up = self.ff_proj(x), self.up_proj(x)
         if self._activation_checkpoint_fn is not None:
             x_text = self._activation_checkpoint_fn(self.act, x_text)
@@ -975,7 +964,6 @@ class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
         x_text = x_text * x_text_up
         text_out = self.ff_out(x_text)
 
-        # Vision MLP
         x_vis, x_vis_up = self.vision_ff_proj(x), self.vision_up_proj(x)
         if self._activation_checkpoint_fn is not None:
             x_vis = self._activation_checkpoint_fn(self.act, x_vis)
@@ -984,7 +972,6 @@ class InteractionStageOneLlamaBlock(LLaDALlamaBlock):
         x_vis = x_vis * x_vis_up
         vision_out = self.vision_ff_out(x_vis)
 
-        # Route by modality
         if self.forward_mode == "interaction_token":
             inter_out = (text_out + vision_out) / 2
             
@@ -1263,7 +1250,6 @@ class LLaDAModel(nn.Module):
 
         x = self.transformer.emb_drop(x)
 
-        # Build default 1D position_ids if not provided (h_pos == w_pos)
         if position_ids is None:
             logger.debug("position_ids is None; using default 1D positions")
             pos = torch.arange(seq_len, device=x.device).unsqueeze(0).expand(batch_size, -1)
@@ -1321,7 +1307,6 @@ class LLaDAModel(nn.Module):
 
                 layer_past = None if past_key_values is None else past_key_values[block_idx]
 
-                # Select mask based on block type: interaction blocks get isolated mask
                 if block_idx < self.inter_layer_num:
                     cur_block_mask = block_mask_isolated
                     cur_dense_mask = dense_attn_mask_isolated
@@ -1358,7 +1343,6 @@ class LLaDAModel(nn.Module):
                     ]
                 )
 
-                # Determine mask for this group based on layer range
                 group_start = group_idx * self.config.block_group_size
                 group_end = group_start + self.config.block_group_size
                 if group_end <= self.inter_layer_num:
@@ -1420,8 +1404,7 @@ def create_model_config_from_pretrained_config(config: LLaDAConfig):
         kwargs[field.name] = getattr(config, field.name)
     model_config = ModelConfig(**kwargs)
 
-    # Gestalt-specific fields are not part of the base LLaDA ModelConfig
-    # dataclass, but LLaDAModel uses them when choosing interaction blocks.
+    # These fields select Gestalt interaction blocks but are absent from ModelConfig.
     for name in ("inter_layer_num", "inter_layer_state", "inter_tokens_num"):
         if hasattr(config, name):
             setattr(model_config, name, getattr(config, name))
@@ -1464,7 +1447,6 @@ class LLaDAModelLM(PreTrainedModel):
         cat = '',
         position_ids: Optional[torch.Tensor] = None,
         document_ids: Optional[torch.Tensor] = None,
-        # conversation_ids: Optional[torch.LongTensor] = None,
     ) -> Union[Tuple, CausalLMOutputWithPast]:
         if output_attentions:
             raise ValueError("output_attentions is not yet supported in LLaDA")
@@ -1509,7 +1491,6 @@ class LLaDAModelLM(PreTrainedModel):
         self, input_ids: torch.LongTensor, past_key_values: Optional[List[Tuple]] = None, **kwargs
     ):
         if past_key_values:
-            # This is because we want the model to only process the last generated token.
             input_ids = input_ids[:, -1:]
         model_inputs = {"input_ids": input_ids, "past_key_values": past_key_values}
 
@@ -1546,5 +1527,4 @@ class LLaDAModelLM(PreTrainedModel):
         self.model.empty_cache()
 
 
-# Register the model so that it is available for transformer pipelines, auto-loading, etc.
 AutoModel.register(LLaDAConfig, LLaDAModelLM)

@@ -118,8 +118,6 @@ class ModelConfig():
     LLaDA (model) configuration.
     """
 
-    # Note that the defaults for these attributes are equivalent to the base GPT2 model.
-
     d_model: int = 768
     """
     The hidden size of the model.
@@ -445,5 +443,4 @@ class LLaDAConfig(PretrainedConfig):
         return self.d_model
 
 
-# Register the config class so that it is available for transformer pipelines, auto-loading etc.
 AutoConfig.register("llada", LLaDAConfig)

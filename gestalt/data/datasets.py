@@ -31,13 +31,7 @@ class GestaltDataset(IterableDataset):
 
     @staticmethod
     def _parse_data_path_arg(data_path: Union[str, Path, List[str]]) -> List[Path]:
-        """Parse data_path argument into a list of Path objects.
-
-        Supports:
-          - Single path string or Path:  "/some/dir"
-          - Bracket-delimited multi-path string: "[/path/a, /path/b]"
-          - Python list of strings: ["/path/a", "/path/b"]
-        """
+        """Parse a path, bracketed path list, or Python path list."""
         if isinstance(data_path, (list, tuple)):
             paths = [str(path).strip() for path in data_path]
             return [Path(path) for path in paths if path]
@@ -121,7 +115,7 @@ class GestaltDataset(IterableDataset):
         heap = [(0, worker_id) for worker_id in range(total_workers)]
         heapq.heapify(heap)
 
-        # Largest Processing Time first: assign the heaviest file to the lightest worker.
+        # Largest-processing-time assignment balances rows across workers.
         weighted_files = sorted(
             enumerate(row_counts),
             key=lambda x: (-x[1], x[0]),
@@ -187,11 +181,9 @@ class GestaltDataset(IterableDataset):
         total_workers = world_size * num_workers
         global_worker_id = rank * num_workers + worker_id
 
-        # Weighted file assignment by row count; each file goes to exactly one worker.
         assignments = self._build_weighted_file_assignments(total_workers)
         my_files_indices = assignments[global_worker_id]
 
-        # Every distributed worker must participate in the same training steps.
         if not my_files_indices:
             raise RuntimeError(
                 f"No parquet shard assigned to global worker {global_worker_id}. "
@@ -199,8 +191,6 @@ class GestaltDataset(IterableDataset):
                 "reduce WORLD_SIZE/dataloader_num_workers or provide more shards."
             )
 
-        # Seed the processor's RNG with global_worker_id so each rank/worker
-        # gets an independent mask-ratio sequence.
         if self.processor is not None and hasattr(self.processor, 'seed_rng'):
             seed = (torch.initial_seed() + global_worker_id) % (2**32 - 1)
             self.processor.seed_rng(seed)
@@ -295,14 +285,7 @@ class Stage3Dataset(GestaltDataset):
 
     @staticmethod
     def _unified_to_processor_dict(item: Dict) -> Dict:
-        """Convert unified schema row to the dict format Stage3Processor expects.
-
-        Builds the processor's compact per-task structure:
-          i2t      → {conversations, img_tokens, metadata}
-          t2i      → {system_prompt, user_prompt, answer_image: {img_tokens}, metadata}
-          i2i      → {system_prompt, user_prompt, input_image: {img_tokens},
-                       answer_image: {img_tokens}, metadata}
-        """
+        """Convert a unified row into the processor's per-task structure."""
         import json as _json
 
         if "metadata_json" not in item:
@@ -410,7 +393,6 @@ class Stage3Dataset(GestaltDataset):
                     f"{source} | split_qa:{sample_idx}" if sample_idx is not None else source
                 )
 
-                # Build image_grids for MRoPE
                 in_h  = metadata.get("input_token_height")
                 in_w  = metadata.get("input_token_width")
                 out_h = metadata.get("output_token_height")
@@ -481,13 +463,7 @@ class Stage3Dataset(GestaltDataset):
             raise RuntimeError(f"Failed to process {source}: {e}") from e
 
 class TokenBudgetPackingDataset(IterableDataset):
-    """
-    Wraps a Stage3Dataset and accumulates samples until reaching a token budget.
-
-    Each yielded item is a pre-packed dict containing multiple documents
-    concatenated together, with document_ids tracking boundaries.
-    Designed to be used with batch_size=1 in the Trainer.
-    """
+    """Pack samples to a token budget while retaining document boundaries."""
 
     def __init__(self, dataset: IterableDataset, max_length: int = 10000):
         if not isinstance(max_length, int) or max_length <= 0:
@@ -558,15 +534,13 @@ class TokenBudgetPackingDataset(IterableDataset):
             if sample_len == 0:
                 continue
 
-            # Processor and packing limits must agree; never create malformed
-            # sequences by truncating after task construction.
+            # Never truncate a completed task sequence during packing.
             if sample_len > self.max_length:
                 raise ValueError(
                     f"Sample {source} has {sample_len} tokens, exceeding the "
                     f"packing budget {self.max_length}."
                 )
 
-            # Would exceed budget: yield current bin, start new one
             if current_len + sample_len > self.max_length:
                 result = self._emit_bin(current)
                 if result is not None:
@@ -574,12 +548,10 @@ class TokenBudgetPackingDataset(IterableDataset):
                 current = self._new_bin()
                 current_len = 0
 
-            # Append sample to current bin
             doc_id = current["num_docs"]
             self._append_sample(current, sample, doc_id)
             current_len += sample_len
 
-        # Yield remaining samples at end of epoch
         if current_len > 0:
             result = self._emit_bin(current)
             if result is not None:
@@ -624,17 +596,11 @@ class TokenBudgetPackingDataset(IterableDataset):
         return max(1, estimated_batches)
 
 class DataCollatorForCausalLM:
-    """Collator for use with TokenBudgetPackingDataset.
-
-    Expects batch_size=1 where each feature is a pre-packed dict from
-    TokenBudgetPackingDataset. Converts lists to tensors and computes
-    2D position IDs.
-    """
+    """Tensorize one pre-packed item and compute its 2D positions."""
 
     def __call__(self, features: List[Dict]) -> Dict[str, torch.Tensor]:
         from gestalt.model.mrope import compute_2d_position_ids
 
-        # batch_size=1: single pre-packed feature from TokenBudgetPackingDataset
         if len(features) != 1:
             raise ValueError(
                 f"DataCollatorForCausalLM expects batch_size=1 (got {len(features)}). "

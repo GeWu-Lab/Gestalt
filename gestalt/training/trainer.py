@@ -307,14 +307,7 @@ def _fold_interaction_adapter_into_wte(
     loading_info: Dict[str, Any],
     checkpoint_path: str,
 ) -> bool:
-    """
-    Convert Midtrain's interaction_embedding_adapter into normal SFT token embeddings.
-
-    Midtrain Stage-II trained a separate `interaction_embedding_adapter.weight`.
-    Stage-III SFT should use regular token IDs, so copy that adapter into
-    `model.transformer.wte[INTERACTION_START:INTERACTION_END]` and then disable
-    the runtime adapter module. If the checkpoint has no adapter, this is a no-op.
-    """
+    """Fold a Stage-II interaction adapter into the normal token embedding."""
     tensor_name = "interaction_embedding_adapter.weight"
     missing_keys = set(loading_info.get("missing_keys", []))
     adapter = getattr(model, "interaction_embedding_adapter", None)
