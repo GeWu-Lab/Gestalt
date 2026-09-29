@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Gestalt-DiMOO MMU (Multimodal Understanding) Inference
+Gestalt MMU (Multimodal Understanding) Inference
 
 Image-to-Text: given pre-extracted VQVAE image tokens and a text question,
 generate a text answer using the discrete-diffusion decoder.
@@ -31,7 +31,7 @@ from gestalt.model.templates import DEFAULT_MMU_SYSTEM_PROMPT
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Gestalt-DiMOO MMU inference (Image+Question -> Text)"
+        description="Gestalt MMU inference (Image+Question -> Text)"
     )
     parser.add_argument(
         "--model", type=str, required=True,

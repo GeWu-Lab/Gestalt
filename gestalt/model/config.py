@@ -1,10 +1,10 @@
-"""Canonical vocabulary and special-token constants for Gestalt-DiMOO."""
+"""Canonical vocabulary and special-token constants for Gestalt."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class DiMOOVocabConfig:
+class GestaltVocabConfig:
     """Vocabulary layout shared by data processing, training, and inference.
 
     Visual IDs overlap the tail of the base text vocabulary, so IMAGE_START
@@ -40,7 +40,7 @@ class SpecialTokenIds:
     VISUAL_TOKEN_END: int = 142740
 
 
-VOCAB_CONFIG = DiMOOVocabConfig()
+VOCAB_CONFIG = GestaltVocabConfig()
 SPECIAL_TOKENS = SpecialTokenIds()
 
 

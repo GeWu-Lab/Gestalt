@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Gestalt-DiMOO Text-to-Image Inference (Stage3 template)
+Gestalt Text-to-Image Inference (Stage3 template)
 
 Generates VQVAE visual tokens from a text prompt using the Stage3 SFT
 conversation template and the MaskGit-style parallel sampling decoder
@@ -31,7 +31,7 @@ from gestalt.model.config import VOCAB_CONFIG
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Gestalt-DiMOO T2I inference (Text -> Image tokens)"
+        description="Gestalt T2I inference (Text -> Image tokens)"
     )
     parser.add_argument(
         "--model", type=str, required=True,

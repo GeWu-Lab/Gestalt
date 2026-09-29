@@ -73,7 +73,7 @@ def main():
     print(f"gradient_checkpointing: {cfg.get('gradient_checkpointing', True)}")
 
     tokenizer = load_tokenizer(args.pretrained)
-    print(f"Loaded Gestalt-DiMOO tokenizer, len={len(tokenizer)}")
+    print(f"Loaded Gestalt tokenizer, len={len(tokenizer)}")
     
 
     processor = create_stage3_processor(

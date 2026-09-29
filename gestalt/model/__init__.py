@@ -1,9 +1,9 @@
 """Gestalt model package with a lightweight import surface."""
 
-from .config import DiMOOVocabConfig, SPECIAL_TOKENS, SpecialTokenIds, VOCAB_CONFIG
+from .config import GestaltVocabConfig, SPECIAL_TOKENS, SpecialTokenIds, VOCAB_CONFIG
 
 __all__ = [
-    "DiMOOVocabConfig",
+    "GestaltVocabConfig",
     "SpecialTokenIds",
     "VOCAB_CONFIG",
     "SPECIAL_TOKENS",

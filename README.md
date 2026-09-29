@@ -13,7 +13,32 @@
 </p>
 
 <p align="center">
-  <a href="https://ai.ruc.edu.cn/">GeWu-Lab, Gaoling School of Artificial Intelligence, Renmin University of China</a>
+  <a href="https://bjlfzs.github.io/">Zequn Yang</a><sup>1,2,†,*</sup>&emsp;
+  <a href="https://github.com/fishmeoww">Yu Miao</a><sup>1,2,†,*</sup>&emsp;
+  <a href="https://github.com/nihaotian1">Haotian Ni</a><sup>3,†,*</sup>&emsp;
+  <a href="https://github.com/Gutsczh">Ziheng Chen</a><sup>1,2,†</sup>&emsp;
+  <a href="https://scholar.google.com/citations?user=YJWX9e0AAAAJ">Chengxiang Huang</a><sup>4,†</sup>
+  <br/>
+  <a href="https://scholar.google.com/citations?user=Ox6SxpoAAAAJ">Dongzhan Zhou</a><sup>5</sup>&emsp;
+  <a href="https://chenkai.site/">Kai Chen</a><sup>5</sup>&emsp;
+  <a href="http://qizhang.info/">Qi Zhang</a><sup>5</sup>&emsp;
+  <a href="https://gsai.ruc.edu.cn/english/jrwen">Ji-Rong Wen</a><sup>1,2</sup>&emsp;
+  <a href="https://echo0409.github.io/">Yake Wei</a><sup>1,2,‡,*</sup>&emsp;
+  <a href="https://dtaoo.github.io/">Di Hu</a><sup>1,2,6,‡,✉</sup>
+</p>
+
+<p align="center">
+  <sup>1</sup>Gaoling School of Artificial Intelligence, Renmin University of China&emsp;
+  <sup>2</sup>Beijing Key Laboratory of Research on Large Models and Intelligent Governance
+  <br/>
+  <sup>3</sup>Imperial College London&emsp;
+  <sup>4</sup>Beijing University of Posts and Telecommunications&emsp;
+  <sup>5</sup>Shanghai Artificial Intelligence Laboratory&emsp;
+  <sup>6</sup>AresoX
+</p>
+
+<p align="center">
+  <sub><sup>†</sup> Equal contribution&emsp;<sup>‡</sup> Team leader&emsp;<sup>✉</sup> Corresponding author&emsp;<sup>*</sup> Work partially done at Shanghai Artificial Intelligence Laboratory, as an internship</sub>
 </p>
 
 > **Gestalt** is a new paradigm of large multimodal model built around **multimodal interplay**. Guided by a multimodal interplay pyramid — from modality-specific modeling, through cross-modal alignment, to multimodal synergy — Gestalt adopts a unified **discrete diffusion** framework with an interplay-partitioned architecture, where learnable interplay tokens mediate cross-modal exchange and integration. The name is inspired by Gestalt psychology: *the whole is greater than the sum of its parts.*
@@ -137,7 +162,6 @@ Training input is a Parquet file (or a directory of Parquet files) with a unifie
 | `input_image_tokens` | — | — | raw VQVAE IDs |
 | `answer_image_tokens` | — | raw VQVAE IDs | raw VQVAE IDs |
 
-`metadata_json` must provide the image token grid — `token_height` / `token_width` for I2T & T2I; `input_/output_token_height` and `_width` for I2I; multi-image I2T can use `images: [{"token_height": H, "token_width": W}, ...]`. Image tokens must be **either** all raw VQVAE IDs in `[0, 16384)` **or** all model-space IDs in `[126356, 142740)` — never mixed.
 
 ## 📊 Benchmarks
 
@@ -216,4 +240,4 @@ This project is released under the Apache 2.0 license. <!-- TODO: confirm licens
 
 ## 🙏 Acknowledgements
 
-Gestalt is developed by [GeWu-Lab](https://gewu-lab.github.io/) at the Gaoling School of Artificial Intelligence, Renmin University of China, in collaboration with Shanghai Artificial Intelligence Laboratory, Imperial College London, Beijing University of Posts and Telecommunications, and AresoX. Part of this work was done during internships at Shanghai Artificial Intelligence Laboratory.
+This work is supported in part by the Beijing Natural Science Foundation under Grant No. 4262050, and by the Beijing Nova Program under Grant No. 202604841277.

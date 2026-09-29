@@ -1,4 +1,4 @@
-"""Gestalt-DiMOO Stage-III SFT package.
+"""Gestalt Stage-III SFT package.
 
 Submodules are intentionally not imported here: data preprocessing should be
 usable without initializing the model and Trainer dependency graph.
