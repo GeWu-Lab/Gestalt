@@ -1294,9 +1294,9 @@ class LLaDAModel(nn.Module):
         
         is_padding = (input_ids == SPECIAL_TOKENS.PADDING)
 
-        # Training path: create FlexAttention BlockMasks
-        # Inference path: create dense SDPA masks
-        if self.training:
+        # CUDA training uses FlexAttention. CPU training/smoke tests and all
+        # inference use the equivalent dense SDPA masks.
+        if self.training and x.device.type == "cuda":
             block_mask_full, block_mask_isolated = create_block_masks(
                 input_ids, document_ids, is_image_token, is_padding, is_interaction_token,
                 n_heads=self.config.n_heads, device=x.device,

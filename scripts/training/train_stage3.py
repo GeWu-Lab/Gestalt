@@ -71,7 +71,7 @@ def main():
     print(f"Loaded config from {args.config}")
     
     print(f"deepspeed: {args.deepspeed}")
-    print(f"gradient_checkpointing: {cfg.get('gradient_checkpointing', False)}")
+    print(f"gradient_checkpointing: {cfg.get('gradient_checkpointing', True)}")
 
     tokenizer = load_tokenizer(args.pretrained)
     print(f"Loaded Gestalt-DiMOO tokenizer, len={len(tokenizer)}")
@@ -135,6 +135,7 @@ def main():
         max_length=cfg.get("max_length", 5120),
         # Misc
         bf16=cfg.get("bf16", True),
+        gradient_checkpointing=cfg.get("gradient_checkpointing", True),
         dataloader_num_workers=cfg.get("dataloader_num_workers", 0),
         remove_unused_columns=False,
         # Stage-3 specific

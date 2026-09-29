@@ -102,7 +102,7 @@ class TrainerLossTest(unittest.TestCase):
         )
         model = GestaltModelLM(config)
         model.model.reset_parameters()
-        model.eval()  # CPU test uses the dense SDPA path.
+        model.train()  # CPU training uses the dense SDPA fallback.
 
         input_ids = torch.tensor([[10, 11, 12]])
         inputs = self._inputs(

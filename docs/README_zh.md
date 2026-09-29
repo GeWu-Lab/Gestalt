@@ -43,7 +43,7 @@
 - 模型词表扩展到 `142848`，其中 `[142750, 142782)` 是 32 个 interaction token。
 
 当前已核验的参考 tokenizer SHA-256 是
-`5479ed3073407ea5355158f359f32a69402ccf76ea0aae12096bbc2acb3217ff`。
+`9ed814b03fb887c8089287493702fc753df11167218ba4b92991bd95970a4c32`。
 
 ## 训练
 
@@ -86,7 +86,7 @@ T2I 的系统提示词默认是空字符串，与训练默认模板一致。若�
 
 ```bash
 PYTHONPATH=. python -m unittest discover -s tests -v
-GESTALT_TOKENIZER=/path/to/tokenizer.json PYTHONPATH=. \
+GESTALT_CHECKPOINT=/path/to/checkpoint PYTHONPATH=. \
   python -m unittest discover -s tests -p 'test_tokenizer_json.py' -v
 python -m compileall -q gestalt scripts tests
 bash -n scripts/training/gestalt_sft.sh

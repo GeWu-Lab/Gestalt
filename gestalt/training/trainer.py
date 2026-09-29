@@ -1,17 +1,4 @@
-"""
-Gestalt-DiMOO Trainer
-
-HuggingFace Trainer extension for Stage-III SFT.
-
-职责范围（Single Responsibility）：
-    本文件只负责训练流程管理，包括：
-      - 训练参数配置（GestaltTrainingConfig）
-      - 全局归一化的 token-level weighted CE
-      - iterable dataset DataLoader
-      - 学习率调度器兼容处理
-
-模型构建（词表扩展、GC 设置等）已迁移至 gestalt/model/builder.py。
-"""
+"""Hugging Face Trainer integration for Stage-III SFT."""
 
 import json
 import logging
@@ -30,25 +17,15 @@ from transformers import (
 )
 from transformers.trainer_utils import EvalPrediction
 
-# 必须导入你的模型定义文件，触发 AutoModel 注册逻辑
 from gestalt.model.config import VOCAB_CONFIG
 from gestalt.model.modeling_gestalt import GestaltModelLM
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# 训练参数配置
-# ---------------------------------------------------------------------------
-
 @dataclass
 class GestaltTrainingConfig(TrainingArguments):
-    """
-    Gestalt-DiMOO Stage-III SFT training arguments.
+    """Training arguments required by Gestalt Stage-III SFT."""
 
-    继承 HuggingFace TrainingArguments，并补充 Stage-III 所需参数。
-    """
-
-    # ── 基础模型 ──────────────────────────────────────────────────────────
     model_name_or_path: str = None
     gradient_checkpointing: bool = True
     base_model: str = "Alpha-VLLM/LLaDA-8B-Instruct"
@@ -57,7 +34,7 @@ class GestaltTrainingConfig(TrainingArguments):
     stage: str = "stage3"
 
     save_only_model: bool = False
-    min_lr_rate: float = 0.1  # cosine scheduler 最低学习率与初始学习率的比值
+    min_lr_rate: float = 0.1
 
     def __post_init__(self):
         super().__post_init__()
@@ -65,16 +42,8 @@ class GestaltTrainingConfig(TrainingArguments):
             raise ValueError(f"Only stage3 training is supported, got stage={self.stage!r}")
 
 
-# ---------------------------------------------------------------------------
-# Trainer
-# ---------------------------------------------------------------------------
-
 class GestaltTrainer(Trainer):
-    """
-    Gestalt-DiMOO HuggingFace Trainer。
-
-    在标准 HF Trainer 基础上实现 weighted CE 和已分片 iterable DataLoader。
-    """
+    """Trainer with globally normalized weighted CE and pre-sharded data."""
 
     def __init__(
         self,
@@ -89,7 +58,7 @@ class GestaltTrainer(Trainer):
     ):
         import inspect as _inspect
         _trainer_params = set(_inspect.signature(Trainer.__init__).parameters)
-        # HF >= 4.46 renamed 'tokenizer' → 'processing_class'; pass whichever is accepted
+        # Transformers 4.46 renamed tokenizer to processing_class.
         if "processing_class" in _trainer_params and "tokenizer" not in _trainer_params:
             super().__init__(
                 model=model,
@@ -117,14 +86,8 @@ class GestaltTrainer(Trainer):
         # not use Trainer's num_items_in_batch contract.
         self.model_accepts_loss_kwargs = False
 
-    # ── 损失计算 ─────────────────────────────────────────────────────────
-
     def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
-        """
-        Compute pretraining-style global weighted CE loss.
-
-        Returns the standard Hugging Face Trainer loss contract.
-        """
+        """Compute globally normalized token-weighted cross entropy."""
         labels = inputs.pop("labels")
         input_ids = inputs["input_ids"]
         position_ids = inputs.get("position_ids")
@@ -178,19 +141,11 @@ class GestaltTrainer(Trainer):
             return loss, outputs
         return loss
 
-    # ── DataLoader ───────────────────────────────────────────────────────
-
     def get_train_dataloader(self):
         """Build train DataLoader without Accelerate iterable sharding.
 
-        Root cause: `accelerator.prepare(DataLoader(...))` wraps IterableDataset
-        inputs in `IterableDatasetShard`, which assumes the underlying iterable
-        is *not* already rank-sharded. Our `GestaltDataset.__iter__` already does
-        rank/worker-aware sharding itself. Double-sharding means each rank
-        constructs `world_size` times more packed bins than it actually trains
-        on, then discards `world_size - 1` of every `world_size` bins locally.
-
-        For map-style datasets, fall back to the parent implementation.
+        GestaltDataset already shards by rank and worker; Accelerate must not
+        wrap it in IterableDatasetShard a second time.
         """
         import torch.utils.data as tud
 
@@ -210,43 +165,21 @@ class GestaltTrainer(Trainer):
             "persistent_workers": self.args.dataloader_persistent_workers,
         }
 
-        # Match Trainer behavior: only pass prefetch_factor when workers > 0.
         if self.args.dataloader_num_workers > 0:
             dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
 
         return tud.DataLoader(self.train_dataset, **dataloader_params)
 
-
-    # ── LR Scheduler ─────────────────────────────────────────────────────
-
     def create_scheduler(self, num_training_steps: int, optimizer=None):
-        """
-        Override to fix LambdaLR crash with DeepSpeed in PyTorch >= 2.10.
-
-        Root cause: In PyTorch 2.10, LRScheduler.__init__ (base class of LambdaLR) does:
-            initial_lr = group["lr"]
-            group.setdefault("initial_lr", initial_lr)
-            self.base_lrs = _param_groups_val_list(optimizer, "initial_lr")
-        Then LambdaLR.get_lr() does: base_lr * lmbda(self.last_epoch)
-
-        With DeepSpeed's ZeRO optimizer, param_groups[i]["lr"] can be a str '1e-5'
-        or a list [scalar] rather than a plain float, making base_lrs contain
-        non-numeric values → TypeError on multiply.
-
-        Fix: (1) normalize param_group lr values to plain floats; (2) build LambdaLR
-        directly with one lambda per param group, respecting lr_scheduler_type.
-        """
+        """Build a LambdaLR after normalizing DeepSpeed learning-rate values."""
         from functools import partial
         from torch.optim.lr_scheduler import LambdaLR
 
         _opt = optimizer or self.optimizer
         if _opt is None:
-            # No optimizer yet; fall back to parent which will retry with self.optimizer
             return super().create_scheduler(num_training_steps=num_training_steps, optimizer=optimizer)
 
-        # Normalize lr values in param_groups to plain Python floats.
-        # DeepSpeed or HF may store lr as: str '1e-5', list [float], Tensor, etc.
-        # LambdaLR.get_lr() does: base_lr * lmbda(step) — requires base_lr to be numeric.
+        # DeepSpeed may expose learning rates as strings, lists, or tensors.
         try:
             for pg in _opt.param_groups:
                 for key in ("lr", "initial_lr"):
@@ -259,19 +192,15 @@ class GestaltTrainer(Trainer):
                         pg[key] = float(v.item())
                     elif isinstance(v, str):
                         pg[key] = float(v)
-                    # int/float: already fine, leave as-is
         except (AttributeError, TypeError):
-            pass  # DummyOptim has no param_groups; ignore
+            pass
 
-        # Determine number of param groups; handle DummyOptim (no real param_groups)
         try:
             n_groups = len(_opt.param_groups)
         except (AttributeError, TypeError):
             n_groups = 1
 
-        # Build the lr_lambda based on scheduler type
         scheduler_type = getattr(self.args, "lr_scheduler_type", "linear")
-        # scheduler_type may be an enum (SchedulerType) or string
         scheduler_type_str = scheduler_type.value if hasattr(scheduler_type, "value") else str(scheduler_type)
 
         if scheduler_type_str in ("constant", "constant_with_warmup"):
@@ -297,7 +226,6 @@ class GestaltTrainer(Trainer):
             )
 
         else:
-            # Default: linear warmup + linear decay (covers "linear" and unknowns)
             num_warmup_steps = self.args.get_warmup_steps(num_training_steps)
 
             def _linear_lr_lambda(current_step: int, *, num_warmup: int, num_total: int) -> float:
@@ -313,10 +241,6 @@ class GestaltTrainer(Trainer):
             self.lr_scheduler = LambdaLR(_opt, [lr_lambda] * n_groups, last_epoch=-1)
 
         return self.lr_scheduler
-
-# ---------------------------------------------------------------------------
-# Trainer 工厂函数
-# ---------------------------------------------------------------------------
 
 def _load_checkpoint_tensor(checkpoint_path: str, tensor_name: str) -> Optional[torch.Tensor]:
     """Read one tensor from a safetensors checkpoint without loading the full model."""
@@ -467,23 +391,7 @@ def create_trainer(
     inter_layer_state: str = "interaction_token",
     **kwargs,
 ) -> GestaltTrainer:
-    """
-    创建 GestaltTrainer 的工厂函数。
-
-    该函数负责加载 GestaltModelLM、补齐新增参数、创建 tokenizer/collator，
-    并实例化 GestaltTrainer。
-
-    Args:
-        stage: 训练阶段；当前仅支持 "stage3"
-        model_name_or_path: 模型路径（HF Hub 名称或本地 checkpoint 目录）
-        train_dataset: 训练数据集
-        eval_dataset: 验证数据集（可选）
-        tokenizer: 已加载的 tokenizer（可选，不提供则自动加载）
-        **kwargs: 传递给 GestaltTrainingConfig 的额外训练参数
-
-    Returns:
-        初始化完成的 GestaltTrainer 实例
-    """
+    """Load the model and construct the Stage-III trainer."""
     from ..data.datasets import DataCollatorForCausalLM
 
     vocab_size = kwargs.get("vocab_size", VOCAB_CONFIG.EXTENDED_VOCAB_SIZE)
@@ -562,25 +470,23 @@ def create_trainer(
     from ..model.builder import validate_model_vocab
     validate_model_vocab(model, vocab_size)
     
-    model.gradient_checkpointing_enable()
+    if kwargs.get("gradient_checkpointing", True):
+        model.gradient_checkpointing_enable()
     
     if tokenizer is None:
         from ..model.builder import load_tokenizer as _load_tokenizer
         tokenizer = _load_tokenizer(model_name_or_path)
 
-    # pop max_length before passing **kwargs to GestaltTrainingConfig (which has no such field)
     kwargs.pop("max_length", None)
     data_collator = DataCollatorForCausalLM()
     
-    # ── 5. 创建训练配置 ──────────────────────────────────────────────────
     config = GestaltTrainingConfig(
         model_name_or_path=model_name_or_path,
         stage=stage,
         report_to="none",
-        **kwargs,   # max_length already removed
+        **kwargs,
     )
 
-    # ── 6. 实例化 Trainer ────────────────────────────────────────────────
     trainer = GestaltTrainer(
         model=model,
         args=config,

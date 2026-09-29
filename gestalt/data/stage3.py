@@ -798,7 +798,7 @@ class Stage3Processor:
         Returns:
             mask_ratio in (0, 1]
         """
-        if n <= 12:
+        if n <= 5:
             return 1.0
 
         r = self.rng.uniform(0, 1)

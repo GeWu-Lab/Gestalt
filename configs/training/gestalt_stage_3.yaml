@@ -32,5 +32,6 @@ logging_steps: 10
 gradient_accumulation_steps: 4
 weight_decay: 0.1
 bf16: true
+gradient_checkpointing: true
 dataloader_num_workers: 0
 remove_unused_columns: false

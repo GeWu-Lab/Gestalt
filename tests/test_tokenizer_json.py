@@ -9,12 +9,10 @@ from gestalt.model.builder import load_tokenizer
 
 class TokenizerJsonTest(unittest.TestCase):
     def test_tokenizer_ids(self):
-        configured = os.environ.get("GESTALT_TOKENIZER")
-        path = Path(configured) if configured else Path(__file__).parents[1] / "tokenizer.json"
-        if path.is_dir():
-            path = path / "tokenizer.json"
-        if not path.is_file():
-            self.skipTest("Set GESTALT_TOKENIZER to a checkpoint or tokenizer.json")
+        configured = os.environ.get("GESTALT_CHECKPOINT")
+        path = Path(configured) / "tokenizer.json" if configured else None
+        if path is None or not path.is_file():
+            self.skipTest("Set GESTALT_CHECKPOINT to a checkpoint directory")
 
         data = json.loads(path.read_text(encoding="utf-8"))
         token_to_id = {
@@ -44,11 +42,10 @@ class TokenizerJsonTest(unittest.TestCase):
         self.assertEqual(max(all_ids) + 1, VOCAB_CONFIG.VISUAL_TOKEN_END)
 
     def test_loader_accepts_checkpoint_directory(self):
-        configured = os.environ.get("GESTALT_TOKENIZER")
+        configured = os.environ.get("GESTALT_CHECKPOINT")
         if not configured:
-            self.skipTest("Set GESTALT_TOKENIZER to a checkpoint or tokenizer.json")
-        source = Path(configured)
-        checkpoint = source if source.is_dir() else source.parent
+            self.skipTest("Set GESTALT_CHECKPOINT to a checkpoint directory")
+        checkpoint = Path(configured)
         if not (checkpoint / "tokenizer.json").is_file():
             self.skipTest("Configured checkpoint has no tokenizer.json")
 

@@ -1,8 +1,8 @@
 """FlexAttention mask_mod functions and dense attention mask builder.
 
-Provides parameterized mask_mod functions for FlexAttention (training) and an
-equivalent dense mask builder for SDPA (inference). The two paths produce
-identical masking behavior.
+Provides parameterized mask_mod functions for CUDA FlexAttention training and
+an equivalent dense mask builder for SDPA inference/CPU training. The two
+paths produce identical masking behavior.
 
 Mask modes:
 - document_mask_mod: bidirectional attention within documents, padding blocked.
