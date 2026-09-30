@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://gewu-lab.github.io/Gestalt/"><img src="https://img.shields.io/badge/Gestalt-Website-0A66C2?logo=safari&logoColor=white" alt="Website"/></a>
-  <a href="#"><img src="https://img.shields.io/badge/Gestalt-Paper-red?logo=arxiv&logoColor=red" alt="Paper"/></a>
+  <a href="https://github.com/GeWu-Lab/Gestalt/blob/main/archive/Gestalt.pdf"><img src="https://img.shields.io/badge/Gestalt-Paper-red?logo=arxiv&logoColor=red" alt="Paper"/></a>
   <a href="https://github.com/GeWu-Lab/Gestalt"><img src="https://img.shields.io/badge/Gestalt-Code-181717?logo=github" alt="Code"/></a>
   <a href="https://huggingface.co/GeWu-Lab/Gestalt"><img src="https://img.shields.io/badge/Gestalt-Model-yellow?logo=huggingface&logoColor=yellow" alt="Model"/></a>
   <a href="#"><img src="https://img.shields.io/badge/Gestalt-Data-orange?logo=databricks&logoColor=white" alt="Data"/></a>
