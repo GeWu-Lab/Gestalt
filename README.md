@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/Gestalt_logo.png" alt="Gestalt" width="360"/>
+  <img src="assets/Gestalt_logo.png" alt="Gestalt" width="520"/>
 </p>
 
 <h1 align="center">Gestalt: Large Multimodal Interplay Model</h1>
