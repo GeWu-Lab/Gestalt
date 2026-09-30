@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/gestalt_1.png" alt="Gestalt" width="360"/>
+  <img src="assets/Gestalt_logo.png" alt="Gestalt" width="360"/>
 </p>
 
 <h1 align="center">Gestalt: Large Multimodal Interplay Model</h1>
@@ -227,6 +227,11 @@ If you find Gestalt useful for your research, please cite:
   url     = {https://github.com/GeWu-Lab/Gestalt}
 }
 ```
+
+## 💬 Discussion Group （WeChat)
+
+<img src="assets/WeChat.png" alt="WeChat Group" width="360"/>
+
 
 ## 📜 License
 
