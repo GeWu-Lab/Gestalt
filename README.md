@@ -58,7 +58,7 @@ Multimodal intelligence grows from preserving what each modality knows to discov
 > *A case study:* “I have two dogs. The larger one wears a red collar, while the smaller one wears a blue collar.” The image provides the collar color; the text links collar color to size. **Together, they identify the smaller dog.**
 
 <p align="center">
-  <img src="assets/case.jpg" alt="Case study: multimodal synergy" width=”50%”/>
+  <img src="assets/case.jpg" alt="Case study: multimodal synergy" width="50%"/>
 </p>
 
 ## 🏗️ Architecture: From Controlled Exchange to Full Interplay
