@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/gestalt-logo.svg" alt="Gestalt" width="360"/>
+  <img src="assets/gestalt_1.png" alt="Gestalt" width="360"/>
 </p>
 
 <h1 align="center">Gestalt: Large Multimodal Interplay Model</h1>
@@ -34,7 +34,7 @@
 > **Gestalt** is a new paradigm of large multimodal model built around **multimodal interplay**. Guided by a multimodal interplay pyramid — from modality-specific modeling, through cross-modal alignment, to multimodal synergy — Gestalt adopts a unified **discrete diffusion** framework with an interplay-partitioned architecture, where learnable interplay tokens mediate cross-modal exchange and integration. The name is inspired by Gestalt psychology: *the whole is greater than the sum of its parts.*
 
 <p align="center">
-  <img src="assets/gestalt_1.png" alt="Gestalt teaser" width="95%"/>
+  <img src="assets/teaser.png" alt="Gestalt teaser" width="95%"/>
 </p>
 
 ## 📢 News
@@ -57,7 +57,7 @@ Multimodal intelligence grows from preserving what each modality knows to discov
 > *A case study:* “I have two dogs. The larger one wears a red collar, while the smaller one wears a blue collar.” The image provides the collar color; the text links collar color to size. **Together, they identify the smaller dog.**
 
 <p align=”center”>
-  <img src=”assets/case.jpg” alt=”Case study: multimodal synergy” width=”75%”/>
+  <img src="assets/case.jpg" alt="Case study: multimodal synergy" width=”75%”/>
 </p>
 
 ## 🏗️ Architecture: From Controlled Exchange to Full Interplay
