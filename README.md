@@ -23,18 +23,18 @@
   <a href="https://chenkai.site/">Kai Chen</a>&emsp;
   <a href="http://qizhang.info/">Qi Zhang</a>&emsp;
   <a href="https://gsai.ruc.edu.cn/english/jrwen">Ji-Rong Wen</a>&emsp;
-  <a href="https://echo0409.github.io/">Yake Wei</a>&emsp;
-  <a href="https://dtaoo.github.io/">Di Hu</a><sup>✉</sup>
+  <a href="https://echo0409.github.io/">Yake Wei</a><sup>‡</sup>&emsp;
+  <a href="https://dtaoo.github.io/">Di Hu</a><sup>‡,✉</sup>
 </p>
 
 <p align="center">
-  <sub><sup>†</sup> Equal contribution&emsp;<sup>✉</sup> Corresponding author</sub>
+  <sub><sup>†</sup> Equal contribution&emsp;<sup>‡</sup> Team leader&emsp;<sup>✉</sup> Corresponding author</sub>
 </p>
 
 > **Gestalt** is a new paradigm of large multimodal model built around **multimodal interplay**. Guided by a multimodal interplay pyramid — from modality-specific modeling, through cross-modal alignment, to multimodal synergy — Gestalt adopts a unified **discrete diffusion** framework with an interplay-partitioned architecture, where learnable interplay tokens mediate cross-modal exchange and integration. The name is inspired by Gestalt psychology: *the whole is greater than the sum of its parts.*
 
 <p align="center">
-  <img src="assets/teaser.png" alt="Gestalt teaser" width="95%"/>
+  <img src="assets/gestalt_1.png" alt="Gestalt teaser" width="95%"/>
 </p>
 
 ## 📢 News
@@ -55,6 +55,10 @@ Multimodal intelligence grows from preserving what each modality knows to discov
 - **Multimodal Synergy** — combine complementary cues to derive information that neither modality provides alone.
 
 > *A case study:* “I have two dogs. The larger one wears a red collar, while the smaller one wears a blue collar.” The image provides the collar color; the text links collar color to size. **Together, they identify the smaller dog.**
+
+<p align=”center”>
+  <img src=”assets/case.jpg” alt=”Case study: multimodal synergy” width=”75%”/>
+</p>
 
 ## 🏗️ Architecture: From Controlled Exchange to Full Interplay
 
