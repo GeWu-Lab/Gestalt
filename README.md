@@ -237,6 +237,6 @@ If you find Gestalt useful for your research, please cite:
 
 This project is released under the Apache 2.0 license. <!-- TODO: confirm license -->
 
-## 🙏 Acknowledgements
+## 👥 Author Contributions
 
-This work is supported in part by the Beijing Natural Science Foundation under Grant No. 4262050, and by the Beijing Nova Program under Grant No. 202604841277.
+Zequn Yang, Yake Wei, and Di Hu drove the overall advancement of the project. Zequn Yang, Yu Miao, Haotian Ni, Ziheng Chen, and Chengxiang Huang contributed equally to this work. Zequn Yang conducted model pretraining and supervised fine-tuning. Zequn Yang, Yu Miao, and Haotian Ni developed the model architecture and conducted the core experiments. Yu Miao, Ziheng Chen, and Chengxiang Huang contributed to data processing and organization. Yu Miao conducted the evaluation of image generation capabilities, Haotian Ni conducted the multimodal understanding evaluation, and Ziheng Chen conducted the text-only evaluation. Dongzhan Zhou, Kai Chen, Qi Zhang, and Ji-Rong Wen contributed to discussions on the technical design and methodology. Yake Wei, Zequn Yang, Yu Miao, Haotian Ni, Ziheng Chen, and Di Hu contributed to writing and revising the manuscript. Di Hu initiated the project. Yake Wei and Di Hu supervised and advised the project.
