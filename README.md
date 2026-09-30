@@ -41,6 +41,7 @@
 
 - **[2026-09-30]** 🎉 We release the [model weights](https://huggingface.co/GeWu-Lab/Gestalt) and the training & inference code of Gestalt.
 - 📄 The arXiv paper is coming soon. <!-- arXiv currently on hold; add link once announced -->
+- 📦 SFT data coming soon.
 
 ## 🧩 The Multimodal Interplay Pyramid
 
@@ -57,7 +58,7 @@ Multimodal intelligence grows from preserving what each modality knows to discov
 > *A case study:* “I have two dogs. The larger one wears a red collar, while the smaller one wears a blue collar.” The image provides the collar color; the text links collar color to size. **Together, they identify the smaller dog.**
 
 <p align=”center”>
-  <img src="assets/case.jpg" alt="Case study: multimodal synergy" width=”75%”/>
+  <img src=”assets/case.jpg” alt=”Case study: multimodal synergy” width=”50%”/>
 </p>
 
 ## 🏗️ Architecture: From Controlled Exchange to Full Interplay
