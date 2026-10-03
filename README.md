@@ -40,7 +40,7 @@
 ## 📢 News
 
 - **[2026-09-30]** 🎉 We release the [model weights](https://huggingface.co/GeWu-Lab/Gestalt) and the training & inference code of Gestalt.
-- 📄 The arXiv paper is coming soon. <!-- arXiv currently on hold; add link once announced -->
+- **[2026-10-02]** 📄 We release the [arXiv paper](https://arxiv.org/abs/2610.00576) of Gestalt.
 - 📦 SFT data coming soon.
 
 ## 🧩 The Multimodal Interplay Pyramid
