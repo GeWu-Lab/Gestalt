@@ -76,7 +76,7 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible { outline:3px soli
 .author-internship { margin:3px auto 0; max-width:900px; font-family:"Times New Roman",Times,serif; font-size:18px; line-height:1.6; color:#42344f; text-wrap:pretty; }
 .author-internship sup { font-size:.8em; color:inherit; margin:0 2px 0 0; }
 /* Retain the hero footer's height so resource links do not shift the title or authors. */
-.hero-resources { display:flex; align-items:center; justify-content:center; gap:14px; width:min(100%,588px); min-height:calc(clamp(31px,3.1vw,47px) * 1.4 + 8px); margin:34px auto 0; padding-bottom:8px; }
+.hero-resources { display:flex; align-items:center; justify-content:center; gap:14px; width:min(100%,740px); min-height:calc(clamp(31px,3.1vw,47px) * 1.4 + 8px); margin:34px auto 0; padding-bottom:8px; }
 .resource-link { display:inline-flex; flex:1; min-width:0; align-items:center; justify-content:center; gap:9px; padding:12px 20px; border:1px solid #dcd2e7; border-radius:999px; background:linear-gradient(180deg,#ffffffeb,#f5f0fa); color:#665477; font-size:16px; font-weight:600; line-height:1.4; text-decoration:none; box-shadow:0 5px 14px -10px #776a9750; }
 .resource-link svg { flex:0 0 20px; width:20px; height:20px; }
 .resource-link[aria-disabled="true"] { cursor:default; }
@@ -252,6 +252,7 @@ h3 { font-size:24px; line-height:1.45; letter-spacing:-.035em; font-weight:600; 
  .author-notes { font-size:16px; gap:3px 8px; }
  .author-internship { font-size:16px; }
  .hero-resources { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:min(100%,320px); min-height:97.6px; margin-top:28px; gap:10px; }
+ .hero-resources .resource-link:first-child { grid-column:1 / -1; }
  .resource-link { padding:11px 10px; gap:7px; font-size:15px; }
  .resource-link svg { flex-basis:18px; width:18px; height:18px; }
  .section { padding-top:57px; }
