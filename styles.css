@@ -252,7 +252,7 @@ h3 { font-size:24px; line-height:1.45; letter-spacing:-.035em; font-weight:600; 
  .author-notes { font-size:16px; gap:3px 8px; }
  .author-internship { font-size:16px; }
  .hero-resources { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:min(100%,320px); min-height:97.6px; margin-top:28px; gap:10px; }
- .hero-resources .resource-link:first-child { grid-column:1 / -1; }
+ .hero-resources .resource-link:last-child { grid-column:1 / -1; }
  .resource-link { padding:11px 10px; gap:7px; font-size:15px; }
  .resource-link svg { flex-basis:18px; width:18px; height:18px; }
  .section { padding-top:57px; }
