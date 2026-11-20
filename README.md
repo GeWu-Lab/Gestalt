@@ -142,6 +142,17 @@ python scripts/inference/run_t2i.py \
 > [!TIP]
 > T2I uses an empty system prompt by default, matching the training template. If your training data used a fixed non-empty system prompt, pass the same text via `--system-prompt` at inference.
 
+#### MMU sampling tests
+
+With the inference dependencies installed, run these commands from the repository root.
+
+```bash
+python -m pip install pytest
+python -m pytest tests/test_mmu_sampling.py
+```
+
+The tests use synthetic logits and require no model checkpoint. MPS-specific cases are skipped when MPS is unavailable.
+
 ## 📦 Data Format
 
 Training input is a Parquet file (or a directory of Parquet files) with a unified schema:

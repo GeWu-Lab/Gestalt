@@ -1,3 +1,4 @@
+# Modified: MMU sampling uses MPS-compatible precision and log-space scores.
 from .configuration_llada import LLaDAConfig
 import torch
 import torch.nn as nn
@@ -257,7 +258,7 @@ class GestaltModelLM(LLaDAModelLM):
                 x0 = torch.argmax(self._add_gumbel_noise(logits, temperature), dim=-1)
 
                 if remasking == "low_confidence":
-                    p = F.softmax(logits.to(torch.float64), dim=-1)
+                    p = F.softmax(logits.to(torch.float32 if logits.device.type == "mps" else torch.float64), dim=-1)
                     x0_p = torch.gather(p, dim=-1, index=x0.unsqueeze(-1)).squeeze(-1)
                 else:
                     x0_p = torch.rand(x0.shape, device=device)
@@ -321,6 +322,12 @@ class GestaltModelLM(LLaDAModelLM):
 
     def _add_gumbel_noise(self, logits, temperature=1.0):
         if temperature <= 1e-6: return logits
+        if logits.device.type == "mps":
+            logits = logits.to(torch.float32)
+            noise = torch.rand_like(logits).clamp_min_(1e-20)
+            log_gumbel = temperature * torch.log(-torch.log(noise))
+            log_denominator = torch.logaddexp(log_gumbel, torch.full_like(log_gumbel, math.log(1e-20)))
+            return logits - log_denominator
         logits = logits.to(torch.float64)
         noise = torch.rand_like(logits, dtype=torch.float64)
         gumbel = (-torch.log(noise + 1e-20)) ** temperature
