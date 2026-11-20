@@ -92,19 +92,25 @@ The SFT data are organized into **redundant, text-unique, visual-unique, and syn
 
 ### 1️⃣ Environment
 
+Create an inference environment with Python 3.11.
+
 ```bash
 git clone https://github.com/GeWu-Lab/Gestalt.git
 cd Gestalt
-pip install -r requirements.txt
+python3.11 -m venv .venv-inference
+source .venv-inference/bin/activate
+python -m pip install -r requirements-inference.txt
 ```
 
 ### 2️⃣ Download the Model
 
 ```bash
-huggingface-cli download GeWu-Lab/Gestalt --local-dir /path/to/checkpoint
+hf download GeWu-Lab/Gestalt --local-dir /path/to/checkpoint
 ```
 
 ### 3️⃣ Training (Stage-III SFT)
+
+Install the training dependencies in a separate environment with `python -m pip install -r requirements.txt`.
 
 Training data are Parquet files with a unified schema covering **I2T / MMU**, **T2I**, and **I2I** tasks (see [Data Format](#-data-format)):
 
@@ -118,6 +124,15 @@ scripts/training/gestalt_sft.sh
 The checkpoint directory must contain `tokenizer.json`; training reads the tokenizer directly from `PRETRAINED`. Defaults: `configs/training/gestalt_stage_3.yaml` with DeepSpeed ZeRO-2 (`DEEPSPEED=none` to disable). Omit `NPROC_PER_NODE` for single-GPU runs. The number of Parquet files must be ≥ the number of distributed ranks.
 
 ### 4️⃣ Inference
+
+With the inference environment active, you can check both commands without a checkpoint.
+
+```bash
+python scripts/inference/run_mmu.py --help
+python scripts/inference/run_t2i.py --help
+```
+
+Both scripts default to CUDA and require BF16 support on that device. Pass `--device cpu` to run in float32.
 
 **Multimodal understanding (MMU)** — image tokens + question → text:
 
