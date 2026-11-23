@@ -23,6 +23,7 @@ wandb/
 tokenizer.json
 
 .env
+/.venv-inference/
 
 # release housekeeping
 /archive/*
